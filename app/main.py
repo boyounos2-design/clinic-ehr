@@ -329,6 +329,18 @@ def init_db():
             c.execute("ALTER TABLE patients ADD COLUMN dob_approx INTEGER NOT NULL DEFAULT 0")
         c.commit()
         c.close()
+    if os.environ.get("EHR_RESET_ADMIN") == "1" and os.environ.get("EHR_ENV") == "production":
+        # Recovery: with access to the server's environment you can reset the admin password. Remove the flag afterwards.
+        pw = os.environ.get("EHR_ADMIN_PASSWORD", "")
+        if len(pw) < 12:
+            raise RuntimeError("EHR_RESET_ADMIN needs EHR_ADMIN_PASSWORD (at least 12 characters).")
+        au = os.environ.get("EHR_ADMIN_USER", "admin")
+        if q("SELECT 1 FROM users WHERE username=?", (au,), one=True):
+            q("UPDATE users SET password_hash=? WHERE username=?", (hash_pw(pw), au))
+        else:
+            q("INSERT INTO users(id,username,password_hash,full_name,role,created_at) VALUES (?,?,?,?,?,?)",
+              (new_id(), au, hash_pw(pw), "Administrator", "admin", now()))
+        log.warning("Admin password was reset from EHR_ADMIN_PASSWORD. Remove EHR_RESET_ADMIN now.")
     if not q("SELECT 1 FROM users LIMIT 1", one=True) and os.environ.get("EHR_ENV") == "production":
         pw = os.environ.get("EHR_ADMIN_PASSWORD", "")
         if len(pw) < 12:

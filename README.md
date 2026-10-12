@@ -58,3 +58,7 @@ Vercel has no persistent disk, so in this mode everything (data, uploaded files,
 Limits: request bodies are capped at 4.5MB (the browser shrinks large photos automatically); OCR runs
 inside the request, so use OCR.Space/Anthropic (Tesseract is not available on Vercel).
 Only fake/demo data should be used on a free trial deployment.
+
+### Forgot the admin password
+In Vercel set `EHR_ADMIN_PASSWORD` to a new value (12+ chars) and add `EHR_RESET_ADMIN=1`, redeploy, log in,
+then delete `EHR_RESET_ADMIN` and redeploy again.
