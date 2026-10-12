@@ -18,6 +18,9 @@ Patient-records app for an orthopedic clinic (Arabic / English, RTL). FastAPI + 
 
 Automatic reading can be wrong. The UI marks low-confidence fields and nothing is saved until the doctor presses Save.
 
+## Trial link on Render (free, data is erased on restart)
+Render dashboard > **New > Blueprint** > pick this repo > it reads `render.yaml`. Then open Render > the service > **Environment**, read `EHR_ADMIN_PASSWORD`, and sign in as `admin` at the service URL. The free plan sleeps after 15 min idle (about 1 min to wake) and has no persistent disk, so use sample data only.
+
 ## Deploy on a paid server (Docker + HTTPS)
 1. A small Linux VPS with Docker and Docker Compose; a domain whose DNS A-record points at it; ports 80/443 open.
 2. `git clone <this repo> && cd <repo> && cp .env.example .env` and edit `.env` (`DOMAIN`, a strong `EHR_ADMIN_PASSWORD`, optional API keys).

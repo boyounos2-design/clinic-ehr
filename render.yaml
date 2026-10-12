@@ -1,0 +1,22 @@
+# Render Blueprint - TRIAL deployment (free plan).
+# The free plan has no persistent disk: the database and uploads are erased on every restart/spin-down.
+# Use SAMPLE data only. For real use, deploy on a server with a persistent disk (see README.md).
+services:
+  - type: web
+    name: clinic-ehr
+    runtime: python
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --app-dir app --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /api/health
+    envVars:
+      - key: EHR_ENV
+        value: production
+      - key: EHR_DATA_DIR
+        value: /tmp/ehr-data
+      - key: EHR_ADMIN_PASSWORD
+        generateValue: true          # random admin password; read it in Render > Environment
+      - key: OCRSPACE_API_KEY
+        sync: false                  # optional: paste when Render asks, or leave empty
