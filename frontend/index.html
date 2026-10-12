@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinic EHR</title>
+<style>
+@font-face{font-family:"Instrument Sans";src:url(fonts/InstrumentSans-Regular.ttf);font-weight:400;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/InstrumentSans-Bold.ttf);font-weight:600 700;font-display:swap}
+@font-face{font-family:"Instrument Serif";src:url(fonts/InstrumentSerif-Regular.ttf);font-display:swap}
+@font-face{font-family:"Instrument Serif";src:url(fonts/InstrumentSerif-Italic.ttf);font-style:italic;font-display:swap}
+@font-face{font-family:"DM Mono";src:url(fonts/DMMono-Regular.ttf);font-display:swap}
+/* Modern, large and clear: soft cool surfaces, big type, one teal accent. Light + dark. */
+:root{--bg:#f3f6f8;--card:#ffffff;--ink:#0e1a24;--mute:#56656f;--line:#dbe3e8;--brand:#0b5c6b;--brand-ink:#ffffff;--accent:#0b7f8f;--bad:#b3261e;--warn:#8a5a00;--ok:#1b7a43;--mark:#ffe58a;--r:12px;--sh:0 1px 2px rgba(14,26,36,.06),0 6px 20px rgba(14,26,36,.06);
+ --serif:"Instrument Serif","Segoe UI","Noto Naskh Arabic",Tahoma,Georgia,serif;--sans:"Instrument Sans","Segoe UI",Tahoma,"Noto Naskh Arabic",system-ui,sans-serif;--mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#0a1117;--card:#121c25;--ink:#eaf1f5;--mute:#9db0bb;--line:#243541;--brand:#3fb7c8;--brand-ink:#04161b;--accent:#4fc6d6;--bad:#ff8f80;--warn:#f0c060;--ok:#74d397;--mark:#5a4b00;--sh:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3)}}
+*{box-sizing:border-box}
+html{font-size:18px}
+body{margin:0;font:400 1rem/1.6 var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--sans);font-weight:700;letter-spacing:-.01em;margin:.4em 0}
+h2{font-size:1.75rem;line-height:1.2}h3{font-size:1.25rem}
+button,input,select,textarea{font:inherit;color:inherit}
+.btn{min-height:52px;padding:0 24px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;transition:border-color .15s,background .15s,transform .05s;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--accent)}.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}.btn.sm{min-height:44px;padding:0 16px;font-size:.95rem}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input,select,textarea{width:100%;min-height:52px;padding:10px 14px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--card);font-size:1rem}
+input:hover,select:hover,textarea:hover{border-color:var(--mute)}
+textarea{min-height:96px;resize:vertical}
+label{display:block;font:600 .9rem/1.3 var(--sans);color:var(--mute);margin:16px 0 6px}
+header.top{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:var(--sh)}
+header.top .logo{font:800 1.35rem/1 var(--sans);white-space:nowrap;color:var(--brand)}
+header.top .sbox{flex:1;position:relative}
+header.top .sbox input{background:var(--bg);border-color:transparent;border-radius:999px;padding-inline:20px}
+nav.tabs{display:flex;gap:10px;padding:8px 24px;overflow-x:auto;background:var(--bg);align-items:center}
+nav.tabs button:not(.btn){min-height:48px;padding:0 20px;border:0;border-radius:999px;background:transparent;cursor:pointer;white-space:nowrap;color:var(--mute);font-weight:600}
+nav.tabs button:not(.btn):hover{background:var(--card);color:var(--ink)}
+nav.tabs button[aria-current=page]{background:var(--brand);color:var(--brand-ink)}
+nav.tabs .btn{white-space:nowrap}
+
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px;box-shadow:var(--sh)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.stat{padding:22px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);font:600 .95rem/1.3 var(--sans);color:var(--mute)}
+.stat b{display:block;font:800 3rem/1 var(--sans);color:var(--ink);margin-bottom:8px}
+.stat.hot{border-color:var(--bad)}.stat.hot b{color:var(--bad)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row.sp{justify-content:space-between}
+.mute{color:var(--mute)}.small{font-size:.9rem}
+.pill{display:inline-block;padding:2px 12px;border-radius:999px;font:600 .8rem/1.7 var(--sans);border:1.5px solid var(--line);color:var(--mute)}
+.pill.bad{color:var(--bad);border-color:var(--bad)}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.ok{color:var(--ok);border-color:var(--ok)}
+.item{padding:16px 6px;border-top:1px solid var(--line)}.item:first-child{border-top:0}
+.item.click{cursor:pointer;border-radius:10px;transition:background .12s}.item.click:hover{background:var(--bg)}
+mark{background:var(--mark);color:inherit;padding:0 3px;border-radius:4px}
+.field-pair{display:grid;gap:0 16px;grid-template-columns:1fr 1fr}@media(max-width:640px){.field-pair{grid-template-columns:1fr}}
+dialog{border:1px solid var(--line);border-radius:20px;padding:0;width:min(720px,96vw);background:var(--card);color:var(--ink);max-height:92vh;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog.wide{width:min(1180px,97vw)}
+dialog::backdrop{background:rgba(8,14,20,.6);backdrop-filter:blur(3px)}dialog form{padding:26px;max-height:92vh;overflow:auto}
+.dlg-in{padding:26px;max-height:92vh;overflow:auto}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{min-height:44px;padding:0 18px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);cursor:pointer;font:600 .9rem var(--sans)}
+.chip[aria-pressed=true]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:28px;text-align:center;cursor:pointer;color:var(--mute);background:var(--bg);transition:border-color .15s}.drop:hover,.drop.over{border-color:var(--accent);color:var(--ink)}
+.drop.big{padding:56px 24px;font-size:1.15rem}.drop.big .dropicon{display:inline-flex;width:64px;height:64px;border-radius:50%;background:var(--card);color:var(--accent);align-items:center;justify-content:center;margin-bottom:10px;box-shadow:var(--sh)}
+.drop.big .dropicon svg{width:30px;height:30px}
+pre.ocr{white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:var(--r);max-height:260px;overflow:auto;unicode-bidi:plaintext}
+#toast{position:fixed;bottom:20px;inset-inline:16px;max-width:520px;margin-inline:auto;background:var(--ink);color:var(--bg);padding:14px 20px;border-radius:var(--r);display:none;z-index:20;font-weight:600;box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse}th{font:700 .85rem var(--sans);color:var(--mute)}th,td{text-align:start;padding:10px;border-top:1px solid var(--line)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+bdi,.mono{font-family:var(--mono);font-size:.92em}
+/* paper-sheet import */
+.note{padding:12px 16px;border-radius:var(--r);background:var(--bg);border:1px solid var(--line);margin:10px 0}
+.note.ok{border-color:var(--ok);color:var(--ok)}.note.warn{border-color:var(--warn);color:var(--warn)}.note.info{border-color:var(--accent)}
+.review-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:28px;padding:0!important;margin-top:16px;overflow:visible!important}
+.review-grid .preview{position:sticky;top:0;align-self:start}
+.preview img,.preview iframe{width:100%;max-height:78vh;border:1px solid var(--line);border-radius:var(--r);object-fit:contain;background:var(--bg)}.preview iframe{height:70vh}
+.fld.review input,.fld.review textarea,.fld.review select{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--card))}
+.flag{display:inline-block;background:var(--warn);color:var(--card);border-radius:999px;padding:0 10px;font-size:.75rem;margin-inline-start:6px}
+.loading{text-align:center;padding:70px 20px}.spin{width:48px;height:48px;border:5px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 18px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.savebar{position:sticky;bottom:-26px;background:var(--card);padding:14px 0;margin-top:18px;border-top:1px solid var(--line)}
+@media(max-width:860px){.review-grid{grid-template-columns:1fr}.review-grid .preview{position:static}header.top{flex-wrap:wrap}}
+/* login */
+.split{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.split .plate{background:#0b0f14 url(assets/plate.jpg) center/cover no-repeat}
+.split .pane{display:flex;align-items:center;justify-content:center;padding:32px}
+.login{width:100%;max-width:400px}.login h1{font-size:2.6rem;line-height:1.1;margin:0 0 28px;color:var(--brand)}
+@media(max-width:800px){.split{grid-template-columns:1fr}.split .plate{display:none}}
+html[lang=ar] *{letter-spacing:0!important;text-transform:none!important}
+html[lang=ar] body{line-height:1.75}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg"></dialog>
+<script src="intake.js"></script>
+<script>
+"use strict";
+/* ───────── i18n ───────── */
+const T={en:{app:"Clinic EHR",login:"Sign in",user:"Username",pass:"Password",logout:"Sign out",search:"Search anything: name, phone, diagnosis, drug, date, scanned text…  ( / )",
+dash:"Dashboard",patients:"Patients",followups:"Follow-ups",results:"Search results",newPatient:"New patient",save:"Save",cancel:"Cancel",edit:"Edit",del:"Delete",add:"Add",open:"Open",
+name:"Full name",dob:"Date of birth",age:"Age",phone:"Phone",address:"Address",gender:"Gender",male:"Male",female:"Female",other:"Other",unknown:"Unknown",nid:"National ID",
+overview:"Overview",history:"Past history",visits:"Visits",documents:"Documents",yrs:"yrs",mrn:"File #",
+kind:"Type",medical:"Medical",surgical:"Surgical",medication:"Medication",allergy:"Allergy",family:"Family",social:"Social",desc:"Description",since:"Since",
+newVisit:"New visit",complaint:"Chief complaint",symptoms:"Symptoms",exam:"Physical examination",dx:"Clinical diagnosis",icd:"ICD-10",plan:"Management plan",notes:"Physician notes",
+rx:"Prescriptions",drug:"Drug",dose:"Dose",route:"Route",freq:"Frequency",duration:"Duration",addDrug:"Add drug",fuDate:"Next follow-up date",fuReason:"Follow-up reason",
+upload:"Upload files",dropHere:"Drop files here or click to choose (PDF, images, DICOM)",category:"Category",lab:"Lab",imaging_report:"Imaging report",imaging_image:"Imaging",operative_note:"Operative note",
+ocr_pending:"Waiting for OCR",ocr_processing:"Reading text…",ocr_done:"Text extracted",ocr_failed:"OCR failed",ocr_not_applicable:"No text to read",
+extracted:"Extracted text (editable — corrections are what gets searched)",reocr:"Re-run OCR",view:"View file",
+due:"Due",reason:"Reason",status:"Status",scheduled:"Scheduled",done:"Done",missed:"Missed",cancelled:"Cancelled",overdue:"Overdue",markDone:"Mark done",addFu:"Add follow-up",
+pCount:"Patients",vToday:"Visits today",fToday:"Follow-ups due today",fOver:"Overdue follow-ups",ocrQ:"Files in OCR queue",none:"Nothing here yet.",
+all:"All",patient:"Patient",history_t:"History",visit:"Visit",document:"Document",followup:"Follow-up",from:"From",to:"To",hits:"matches",noHits:"No matches.",
+confirm:"Are you sure?",saved:"Saved",failed:"Something went wrong",lang:"العربية",callPatient:"Call"},
+ar:{app:"نظام عيادة العظام",login:"تسجيل الدخول",user:"اسم المستخدم",pass:"كلمة المرور",logout:"خروج",search:"ابحث في كل شيء: اسم، هاتف، تشخيص، دواء، تاريخ، نص ممسوح…  ( / )",
+dash:"الرئيسية",patients:"المرضى",followups:"المتابعات",results:"نتائج البحث",newPatient:"مريض جديد",save:"حفظ",cancel:"إلغاء",edit:"تعديل",del:"حذف",add:"إضافة",open:"فتح",
+name:"الاسم الكامل",dob:"تاريخ الميلاد",age:"السن",phone:"الهاتف",address:"العنوان",gender:"النوع",male:"ذكر",female:"أنثى",other:"آخر",unknown:"غير محدد",nid:"الرقم القومي",
+overview:"نظرة عامة",history:"التاريخ المرضي",visits:"الزيارات",documents:"المستندات",yrs:"سنة",mrn:"رقم الملف",
+kind:"النوع",medical:"مرضي",surgical:"جراحي",medication:"دوائي",allergy:"حساسية",family:"عائلي",social:"اجتماعي",desc:"الوصف",since:"منذ",
+newVisit:"زيارة جديدة",complaint:"الشكوى الرئيسية",symptoms:"الأعراض",exam:"الفحص الإكلينيكي",dx:"التشخيص الإكلينيكي",icd:"ICD-10",plan:"خطة العلاج",notes:"ملاحظات الطبيب",
+rx:"الروشتة",drug:"الدواء",dose:"الجرعة",route:"الطريق",freq:"التكرار",duration:"المدة",addDrug:"إضافة دواء",fuDate:"موعد المتابعة القادم",fuReason:"سبب المتابعة",
+upload:"رفع ملفات",dropHere:"اسحب الملفات هنا أو اضغط للاختيار (PDF، صور، DICOM)",category:"التصنيف",lab:"تحاليل",imaging_report:"تقرير أشعة",imaging_image:"صورة أشعة",operative_note:"تقرير عملية",
+ocr_pending:"في انتظار قراءة النص",ocr_processing:"جارٍ قراءة النص…",ocr_done:"تم استخراج النص",ocr_failed:"فشلت القراءة",ocr_not_applicable:"لا يوجد نص",
+extracted:"النص المستخرج (قابل للتعديل — التصحيحات هي ما يُبحث فيه)",reocr:"إعادة القراءة",view:"عرض الملف",
+due:"الموعد",reason:"السبب",status:"الحالة",scheduled:"مجدولة",done:"تمت",missed:"فائتة",cancelled:"ملغاة",overdue:"متأخرة",markDone:"تمت",addFu:"إضافة متابعة",
+pCount:"المرضى",vToday:"زيارات اليوم",fToday:"متابعات اليوم",fOver:"متابعات متأخرة",ocrQ:"ملفات في الانتظار",none:"لا يوجد شيء بعد.",
+all:"الكل",patient:"مريض",history_t:"تاريخ مرضي",visit:"زيارة",document:"مستند",followup:"متابعة",from:"من",to:"إلى",hits:"نتيجة",noHits:"لا توجد نتائج.",
+confirm:"هل أنت متأكد؟",saved:"تم الحفظ",failed:"حدث خطأ",lang:"English",callPatient:"اتصال"}};
+const S={token:localStorage.getItem("tok"),user:JSON.parse(localStorage.getItem("usr")||"null"),lang:localStorage.getItem("lang")||((navigator.language||"").startsWith("ar")?"ar":"en"),
+ view:"dash",pid:null,ptab:"overview",sq:"",sf:{types:[],from:"",to:""},timer:null};
+const t=k=>(T[S.lang][k]??T.en[k]??k);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=(s,r=document)=>r.querySelector(s);
+const fmtD=d=>d?new Date(d).toLocaleDateString(S.lang==="ar"?"ar-EG":"en-GB",{year:"numeric",month:"short",day:"numeric"}):"";
+const today=()=>new Date().toISOString().slice(0,10);
+const hl=s=>esc(s).replace(/«/g,"<mark>").replace(/»/g,"</mark>");
+const isClin=()=>S.user&&S.user.role!=="receptionist", isDoc=()=>S.user&&["doctor","admin"].includes(S.user.role);
+function toast(m){const e=$("#toast");e.textContent=m;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3000)}
+
+/* ───────── api ───────── */
+async function api(path,{method="GET",body,form}={}){
+ const h={};if(S.token)h.Authorization="Bearer "+S.token;
+ let b;if(form)b=form;else if(body){h["Content-Type"]="application/json";b=JSON.stringify(body)}
+ const r=await fetch("/api"+path,{method,headers:h,body:b});
+ if(r.status===401&&S.token){logout();throw new Error("auth")}
+ if(r.status===204)return null;
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok){const d=j.detail;const er=new Error(typeof d==="string"?d:Array.isArray(d)?d.map(x=>(x.loc||[]).slice(-1)+": "+x.msg).join("; "):(d&&d.message)||t("failed"));er.data=(d&&typeof d==="object"&&!Array.isArray(d))?d:j;throw er}
+ return j}
+async function fileBlobUrl(id){const r=await fetch(`/api/documents/${id}/file`,{headers:{Authorization:"Bearer "+S.token}});if(!r.ok)throw new Error(t("failed"));return URL.createObjectURL(await r.blob())}
+
+/* ───────── shell ───────── */
+function setLang(l){S.lang=l;localStorage.setItem("lang",l);document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";render()}
+function logout(){S.token=null;S.user=null;localStorage.removeItem("tok");localStorage.removeItem("usr");render()}
+function render(){document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==="ar"?"rtl":"ltr";document.title=t("app");
+ const app=$("#app");if(!S.token){app.innerHTML=loginHtml();return}
+ const tabs=[["dash",t("dash")],["patients",t("patients")],["followups",t("followups")]];
+ app.innerHTML=`<header class="top"><span class="logo">${esc(t("app"))}</span>
+  <div class="sbox"><label class="sr" for="gs">${esc(t("search"))}</label><input id="gs" type="search" autocomplete="off" placeholder="${esc(t("search"))}" value="${esc(S.sq)}"></div>
+  ${S.user.role==="admin"?`<button class="btn sm" data-a="settings">${esc(it("settings"))}</button>`:""}<button class="btn sm" data-a="account">${esc(it("account"))}</button><button class="btn sm" data-a="lang">${esc(t("lang"))}</button><button class="btn sm" data-a="logout" title="${esc(S.user.full_name)}">${esc(t("logout"))}</button></header>
+  <nav class="tabs" aria-label="main">${tabs.map(([k,l])=>`<button data-a="nav" data-v="${k}" ${S.view===k?'aria-current="page"':""}>${esc(l)}</button>`).join("")}
+  <button class="btn primary sm" data-a="intake" style="margin-inline-start:auto">${ICON_SHEET.replace(/22/g,"20")} ${esc(it("intake"))}</button><button class="btn sm" data-a="newPatient">+ ${esc(t("newPatient"))}</button></nav><main id="main" tabindex="-1"></main>`;
+ view()}
+function loginHtml(){return `<div class="split"><div class="plate" role="img" aria-label="Trabecular stress lines"></div><div class="pane"><form class="login" id="lf"><h1>${esc(t("app"))}</h1>
+ <label for="u">${esc(t("user"))}</label><input id="u" autocomplete="username" required autofocus>
+ <label for="p">${esc(t("pass"))}</label><input id="p" type="password" autocomplete="current-password" required>
+ <p id="le" class="pill bad" style="display:none" role="alert"></p>
+ <div class="row sp" style="margin-top:22px"><button class="btn primary">${esc(t("login"))}</button><button type="button" class="btn sm" data-a="lang">${esc(t("lang"))}</button></div></form></div></div>`}
+async function view(){const m=$("#main");if(!m)return;
+ try{ if(S.view==="dash")await vDash(m);else if(S.view==="patients")await vPatients(m);else if(S.view==="followups")await vFollow(m);
+  else if(S.view==="search")await vSearch(m);else if(S.view==="patient")await vPatient(m)}
+ catch(e){if(e.message!=="auth")m.innerHTML=`<p class="pill bad" role="alert">${esc(e.message)}</p>`}}
+function nav(v,extra={}){Object.assign(S,{view:v},extra);render();window.scrollTo(0,0)}
+
+/* ───────── views ───────── */
+const fuRow=f=>`<div class="item row sp"><div><b>${esc(f.patient_name||"")}</b> <span class="mute small">${f.mrn?"<bdi>#"+f.mrn+"</bdi>":""}</span><div class="small">${fmtD(f.due_date)} · ${esc(f.reason||"")}</div></div>
+ <div class="row">${f.overdue?`<span class="pill bad">${t("overdue")}</span>`:""}<span class="pill">${t(f.status)}</span>
+ ${f.patient_phone?`<a class="btn sm" href="tel:${esc(f.patient_phone)}">${t("callPatient")}</a>`:""}
+ ${f.status==="scheduled"?`<button class="btn sm" data-a="fuDone" data-id="${f.id}">${t("markDone")}</button>`:""}
+ <button class="btn sm" data-a="openP" data-id="${f.patient_id}">${t("open")}</button></div></div>`;
+async function vDash(m){const [d,fu]=await Promise.all([api("/dashboard"),api("/followups?upto="+today())]);
+ const st=[[d.patients,"pCount"],[d.visits_today,"vToday"],[d.followups_today,"fToday"],[d.followups_overdue,"fOver",d.followups_overdue>0],[d.ocr_queue,"ocrQ"]];
+ m.innerHTML=`<div class="grid">${st.map(([n,k,hot])=>`<div class="stat${hot?" hot":""}"><b>${n}</b>${esc(t(k))}</div>`).join("")}</div>
+ <div class="card" style="margin-top:14px"><h2 style="margin-top:0">${esc(t("followups"))}</h2>${fu.length?fu.map(fuRow).join(""):`<p class="mute">${t("none")}</p>`}</div>`}
+async function vPatients(m,list){list??=await api("/patients");
+ m.innerHTML=`<div class="card"><div class="row"><label class="sr" for="pf">${t("patients")}</label><input id="pf" placeholder="${esc(t("name")+" / "+t("phone")+" / "+t("mrn"))}" style="flex:1"></div>
+ <div id="pl">${plist(list)}</div></div>`}
+const ageStr=p=>p.age_years==null?"":(p.dob_approx?"~":"")+p.age_years+" "+t("yrs");
+const plist=l=>l.length?l.map(p=>`<div class="item click row sp" tabindex="0" role="button" data-a="openP" data-id="${p.id}"><div><b>${esc(p.full_name)}</b>
+ <div class="small mute"><bdi>#${p.mrn}</bdi> · ${ageStr(p)} · ${t(p.gender)} · <bdi>${esc(p.phone||"")}</bdi></div></div><span class="mute small">${esc(p.address||"")}</span></div>`).join(""):`<p class="mute">${t("none")}</p>`;
+async function vFollow(m){const fu=await api("/followups?status=scheduled");m.innerHTML=`<div class="card"><h2 style="margin-top:0">${t("followups")}</h2>${fu.length?fu.map(fuRow).join(""):`<p class="mute">${t("none")}</p>`}</div>`}
+
+const TYPES=["patient","history","visit","document","followup"];
+async function vSearch(m){
+ const p=new URLSearchParams({q:S.sq});if(S.sf.types.length)p.set("types",S.sf.types.join(","));if(S.sf.from)p.set("date_from",S.sf.from);if(S.sf.to)p.set("date_to",S.sf.to);
+ const r=await api("/search?"+p);const allowed=S.user.role==="receptionist"?["patient","followup"]:TYPES;
+ const byP={};r.hits.forEach(h=>(byP[h.patient_id]??={name:h.patient_name,mrn:h.mrn,phone:h.phone,hits:[]}).hits.push(h));
+ m.innerHTML=`<div class="card"><div class="row"><div class="chips" role="group" aria-label="type">${allowed.map(k=>`<button class="chip" data-a="stype" data-v="${k}" aria-pressed="${S.sf.types.includes(k)}">${esc(t(k==="history"?"history_t":k))}</button>`).join("")}</div>
+ <label class="row small mute" style="margin:0">${t("from")} <input type="date" id="sdf" value="${S.sf.from}" style="width:auto"></label><label class="row small mute" style="margin:0">${t("to")} <input type="date" id="sdt" value="${S.sf.to}" style="width:auto"></label></div></div>
+ <p class="mute" aria-live="polite">${r.total} ${t("hits")} · ${Object.keys(byP).length} ${t("patients")}</p>
+ ${Object.entries(byP).map(([id,g])=>`<div class="card"><div class="row sp"><b>${esc(g.name)} <span class="mute small"><bdi>#${g.mrn}</bdi></span></b><button class="btn sm" data-a="openP" data-id="${id}">${t("open")}</button></div>
+ ${g.hits.map(h=>`<div class="item click" tabindex="0" data-a="openP" data-id="${id}" data-tab="${h.source_type==="visit"?"visits":h.source_type==="document"?"documents":h.source_type==="followup"?"followups":h.source_type==="history"?"overview":"overview"}">
+ <span class="pill">${esc(t(h.source_type==="history"?"history_t":h.source_type))}</span> <b>${esc(h.title||"")}</b> <span class="mute small">${fmtD(h.event_date)}</span>
+ <div class="small" dir="auto">${hl(h.snippet)}</div></div>`).join("")}</div>`).join("")||`<p class="mute">${t("noHits")}</p>`}`}
+
+async function vPatient(m){const p=await api("/patients/"+S.pid);const clin=isClin();
+ const tabs=[["overview",t("overview")],...(clin?[["visits",t("visits")+` (${p.counts.visits})`],["documents",t("documents")+` (${p.counts.documents})`]]:[]),["followups",t("followups")+` (${p.counts.followups})`]];
+ m.innerHTML=`<div class="card"><div class="row sp"><div><h2 style="margin:0">${esc(p.full_name)}</h2>
+ <div class="mute"><bdi>#${p.mrn}</bdi> · ${p.age_years!=null?ageStr(p)+" · ":""}${t(p.gender)} · <bdi>${esc(p.phone||"—")}</bdi></div><div class="small">${esc(p.address||"")}</div></div>
+ <div class="row"><button class="btn sm" data-a="editP">${t("edit")}</button>${isDoc()&&S.user.role==="admin"?`<button class="btn sm danger" data-a="delP">${t("del")}</button>`:""}</div></div></div>
+ <nav class="tabs" style="border:1px solid var(--line);border-radius:10px;margin-bottom:14px">${tabs.map(([k,l])=>`<button data-a="ptab" data-v="${k}" ${S.ptab===k?'aria-current="page"':""}>${esc(l)}</button>`).join("")}</nav><div id="pt"></div>`;
+ S.cur=p;const pt=$("#pt");
+ if(S.ptab==="overview")pt.innerHTML=hist(p);else if(S.ptab==="visits")await tVisits(pt);else if(S.ptab==="documents")await tDocs(pt);else await tFu(pt)}
+function hist(p){if(!clin_ok())return "";const h=p.history||[];
+ return `<div class="card"><div class="row sp"><h3 style="margin:0">${t("history")}</h3><button class="btn sm" data-a="addH">+ ${t("add")}</button></div>
+ ${h.length?h.map(x=>`<div class="item row sp"><div><span class="pill">${t(x.kind)}</span> ${esc(x.description)} <span class="mute small">${x.since_date?t("since")+" "+fmtD(x.since_date):""}</span></div>
+ <div class="row"><button class="btn sm" data-a="editH" data-id="${x.id}">${t("edit")}</button><button class="btn sm danger" data-a="delH" data-id="${x.id}">${t("del")}</button></div></div>`).join(""):`<p class="mute">${t("none")}</p>`}</div>`}
+const clin_ok=()=>isClin();
+async function tVisits(pt){const v=await api(`/patients/${S.pid}/visits`);S.visits=v;
+ pt.innerHTML=`${isDoc()?`<button class="btn primary" data-a="newV" style="margin-bottom:12px">+ ${t("newVisit")}</button>`:""}`+(v.map(x=>`<div class="card"><div class="row sp"><b>${fmtD(x.visit_date)}</b><span class="mute small">${esc(x.doctor_name||"")}</span>
+ ${isDoc()?`<button class="btn sm" data-a="editV" data-id="${x.id}">${t("edit")}</button>`:""}</div>
+ ${[["complaint",x.chief_complaint],["symptoms",x.symptoms],["exam",x.examination],["dx",x.diagnosis],["plan",x.management_plan],["notes",x.physician_notes]].filter(r=>r[1]).map(([k,val])=>`<p style="margin:6px 0"><span class="mute small">${t(k)}</span><br><span dir="auto">${esc(val)}</span></p>`).join("")}
+ ${x.prescriptions.length?`<table><tr><th>${t("drug")}</th><th>${t("dose")}</th><th>${t("freq")}</th><th>${t("duration")}</th></tr>${x.prescriptions.map(r=>`<tr><td dir="auto">${esc(r.drug_name)}</td><td dir="auto">${esc(r.dose||"")}</td><td dir="auto">${esc(r.frequency||"")}</td><td dir="auto">${esc(r.duration||"")}</td></tr>`).join("")}</table>`:""}</div>`).join("")||`<p class="mute">${t("none")}</p>`)}
+let pollT;
+async function tDocs(pt){const d=await api(`/patients/${S.pid}/documents`);
+ pt.innerHTML=`<div class="card"><div class="row"><label for="dc" class="mute small" style="margin:0">${t("category")}</label><select id="dc" style="width:auto">${["lab","imaging_report","imaging_image","operative_note","other"].map(c=>`<option value="${c}">${t(c==="other"?"other":c)}</option>`).join("")}</select></div>
+ <div class="drop" id="drop" tabindex="0" role="button" style="margin-top:10px">${t("dropHere")}</div><input type="file" id="fi" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.dcm"></div>
+ ${d.map(x=>`<div class="card"><div class="row sp"><div><b>${esc(x.original_name)}</b> <span class="pill">${t(x.category)}</span><div class="small mute">${fmtD(x.uploaded_at)} · ${(x.size_bytes/1024).toFixed(0)} KB</div></div>
+ <div class="row"><span class="pill ${x.ocr_status==="done"?"ok":x.ocr_status==="failed"?"bad":"warn"}">${t("ocr_"+x.ocr_status)}</span>
+ <button class="btn sm" data-a="viewF" data-id="${x.id}">${t("view")}</button><button class="btn sm" data-a="ocrTxt" data-id="${x.id}">OCR</button>
+ ${isDoc()?`<button class="btn sm danger" data-a="delD" data-id="${x.id}">${t("del")}</button>`:""}</div></div>${x.ocr_error?`<p class="small" style="color:var(--bad)">${esc(x.ocr_error)}</p>`:""}
+ ${x.ocr_preview?`<div class="small mute" dir="auto">${esc(x.ocr_preview)}…</div>`:""}</div>`).join("")}`;
+ const drop=$("#drop"),fi=$("#fi");drop.onclick=()=>fi.click();drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" ")fi.click()};
+ drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};drop.ondragleave=()=>drop.classList.remove("over");
+ drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");upl(e.dataTransfer.files)};fi.onchange=()=>upl(fi.files);
+ clearTimeout(pollT);if(d.some(x=>["pending","processing"].includes(x.ocr_status)))pollT=setTimeout(()=>{if(S.view==="patient"&&S.ptab==="documents")tDocs($("#pt"))},2500)}
+async function upl(files){for(const f of files){const fd=new FormData();fd.append("file",f);fd.append("category",$("#dc").value);
+ try{await api(`/patients/${S.pid}/documents`,{method:"POST",form:fd});toast(f.name+" ✓")}catch(e){toast(f.name+": "+e.message)}}tDocs($("#pt"))}
+async function tFu(pt){const f=await api("/followups?status=all&patient_id="+S.pid);
+ pt.innerHTML=`<button class="btn primary" data-a="addFu" style="margin-bottom:12px">+ ${t("addFu")}</button><div class="card">${f.length?f.map(fuRow).join(""):`<p class="mute">${t("none")}</p>`}</div>`}
+
+/* ───────── dialogs / forms ───────── */
+function fld(n,label,v="",type="text",extra=""){const val=esc(v??"");
+ if(type==="textarea")return `<label for="f_${n}">${esc(label)}</label><textarea id="f_${n}" name="${n}" ${extra}>${val}</textarea>`;
+ return `<label for="f_${n}">${esc(label)}</label><input id="f_${n}" name="${n}" type="${type}" value="${val}" ${extra}>`}
+function sel(n,label,opts,v){return `<label for="f_${n}">${esc(label)}</label><select id="f_${n}" name="${n}">${opts.map(o=>`<option value="${o}" ${o===v?"selected":""}>${esc(t(o))}</option>`).join("")}</select>`}
+function dialog(title,body,onSave,wide){const d=$("#dlg");d.className=wide?"wide":"";d.innerHTML=`<form method="dialog"><h2 style="margin-top:0">${esc(title)}</h2>${body}<p id="de" class="pill bad" role="alert" style="display:none"></p>
+ <div class="row sp" style="margin-top:16px"><button type="button" class="btn" data-a="close">${t("cancel")}</button>${onSave?`<button class="btn primary" value="save">${t("save")}</button>`:""}</div></form>`;
+ d.showModal();const f=$("form",d);f.onsubmit=async e=>{e.preventDefault();if(!onSave)return;try{await onSave(Object.fromEntries(new FormData(f)),f);d.close();toast(t("saved"));view()}catch(er){const x=$("#de");x.textContent=er.message;x.style.display="inline-block"}}}
+const nn=o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v===""?null:v]));
+function patientForm(p={}){return fld("full_name",t("name"),p.full_name,"text","required minlength=2")+`<div class="field-pair"><div>${fld("date_of_birth",t("dob"),p.date_of_birth,"date")}</div><div>${sel("gender",t("gender"),["male","female","other","unknown"],p.gender||"unknown")}</div></div>`+(p.id&&p.date_of_birth&&!p.dob_approx?"":fld("age_years",t("age"),p.dob_approx?p.age_years:"","number",'min="0" max="120"'))+fld("phone",t("phone"),p.phone,"tel")+fld("address",t("address"),p.address)+fld("national_id",t("nid"),p.national_id)}
+function openPatientForm(p){dialog(p?t("edit"):t("newPatient"),patientForm(p||{}),async d=>{const r=await api(p?"/patients/"+p.id:"/patients",{method:p?"PUT":"POST",body:nn(d)});if(!p){S.pid=r.id;S.ptab="overview";S.view="patient";render()}})}
+function histForm(h={}){return sel("kind",t("kind"),["medical","surgical","medication","allergy","family","social"],h.kind||"medical")+fld("description",t("desc"),h.description,"textarea","required")+fld("since_date",t("since"),h.since_date,"date")}
+function rxRow(r={}){return `<div class="field-pair rxr" style="border-top:1px solid var(--line);padding-top:6px"><div><label>${t("drug")}<input name="rx_drug" value="${esc(r.drug_name||"")}"></label></div><div><label>${t("dose")}<input name="rx_dose" value="${esc(r.dose||"")}"></label></div>
+ <div><label>${t("freq")}<input name="rx_freq" value="${esc(r.frequency||"")}"></label></div><div><label>${t("duration")}<input name="rx_dur" value="${esc(r.duration||"")}"></label></div></div>`}
+function visitForm(v={}){return fld("chief_complaint",t("complaint"),v.chief_complaint,"textarea")+fld("symptoms",t("symptoms"),v.symptoms,"textarea")+fld("examination",t("exam"),v.examination,"textarea")+
+ `<div class="field-pair"><div>${fld("diagnosis",t("dx"),v.diagnosis)}</div><div>${fld("icd10_code",t("icd"),v.icd10_code)}</div></div>`+fld("management_plan",t("plan"),v.management_plan,"textarea")+fld("physician_notes",t("notes"),v.physician_notes,"textarea")+
+ `<h3>${t("rx")}</h3><div id="rxs">${(v.prescriptions||[]).map(rxRow).join("")||rxRow()}</div><button type="button" class="btn sm" data-a="addRx">+ ${t("addDrug")}</button>`+
+ `<div class="field-pair"><div>${fld("follow_up_date",t("fuDate"),"","date")}</div><div>${fld("follow_up_reason",t("fuReason"),"")}</div></div>`}
+function visitBody(d,f){const rows=[...f.querySelectorAll(".rxr")].map(r=>({drug_name:r.querySelector("[name=rx_drug]").value.trim(),dose:r.querySelector("[name=rx_dose]").value||null,frequency:r.querySelector("[name=rx_freq]").value||null,duration:r.querySelector("[name=rx_dur]").value||null})).filter(r=>r.drug_name);
+ const b=nn(d);["rx_drug","rx_dose","rx_freq","rx_dur"].forEach(k=>delete b[k]);b.prescriptions=rows;return b}
+
+/* ───────── events ───────── */
+document.addEventListener("click",async e=>{const el=e.target.closest("[data-a]");if(!el)return;const a=el.dataset.a,id=el.dataset.id,v=el.dataset.v;
+ try{switch(a){
+ case "lang":setLang(S.lang==="en"?"ar":"en");break;
+ case "logout":logout();break;
+ case "close":$("#dlg").close();break;
+ case "nav":nav(v);break;
+ case "newPatient":openPatientForm();break;
+ case "intake":openIntake();break;
+ case "settings":openSettings();break;
+ case "account":openAccount();break;
+ case "openP":if($("#dlg").open)$("#dlg").close();nav("patient",{pid:id,ptab:el.dataset.tab||"overview"});break;
+ case "ptab":S.ptab=v;view();break;
+ case "editP":openPatientForm(S.cur);break;
+ case "delP":if(confirm(t("confirm"))){await api("/patients/"+S.pid,{method:"DELETE"});nav("patients")}break;
+ case "addH":dialog(t("add"),histForm(),d=>api(`/patients/${S.pid}/history`,{method:"POST",body:nn(d)}));break;
+ case "editH":{const h=S.cur.history.find(x=>x.id===id);dialog(t("edit"),histForm(h),d=>api("/history/"+id,{method:"PUT",body:nn(d)}));break}
+ case "delH":if(confirm(t("confirm"))){await api("/history/"+id,{method:"DELETE"});view()}break;
+ case "newV":dialog(t("newVisit"),visitForm(),(d,f)=>api(`/patients/${S.pid}/visits`,{method:"POST",body:visitBody(d,f)}));break;
+ case "editV":{const x=S.visits.find(q=>q.id===id);dialog(t("edit"),visitForm(x),(d,f)=>api("/visits/"+id,{method:"PUT",body:visitBody(d,f)}));break}
+ case "addRx":$("#rxs").insertAdjacentHTML("beforeend",rxRow());break;
+ case "addFu":dialog(t("addFu"),fld("due_date",t("due"),"","date","required")+fld("reason",t("reason"),""),d=>api(`/patients/${S.pid}/followups`,{method:"POST",body:nn(d)}));break;
+ case "fuDone":await api("/followups/"+id,{method:"PATCH",body:{status:"done"}});view();break;
+ case "viewF":{const u=await fileBlobUrl(id);window.open(u,"_blank");break}
+ case "delD":if(confirm(t("confirm"))){await api("/documents/"+id,{method:"DELETE"});view()}break;
+ case "ocrTxt":{const d=await api("/documents/"+id);dialog(d.original_name,`<p class="small mute">${t(d.ocr_status==="done"?"extracted":"ocr_"+d.ocr_status)} ${d.ocr_lang?"· "+esc(d.ocr_lang):""}</p>
+   <textarea name="ocr_text" dir="auto" style="min-height:240px" ${d.ocr_status==="not_applicable"?"disabled":""}>${esc(d.ocr_text||"")}</textarea>
+   <button type="button" class="btn sm" data-a="reocr" data-id="${id}" style="margin-top:8px">${t("reocr")}</button>`,d.ocr_status==="not_applicable"?null:x=>api(`/documents/${id}/ocr-text`,{method:"PATCH",body:{ocr_text:x.ocr_text}}));break}
+ case "reocr":await api(`/documents/${id}/reocr`,{method:"POST"});$("#dlg").close();toast(t("ocr_pending"));view();break;
+ case "stype":{const i=S.sf.types.indexOf(v);i<0?S.sf.types.push(v):S.sf.types.splice(i,1);view();break}
+ }}catch(er){if(er.message!=="auth")toast(er.message)}});
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches(".item.click[data-a]")){e.preventDefault();e.target.click()}
+ if(e.key==="/"&&!e.target.matches("input,textarea,select")){e.preventDefault();const g=$("#gs");if(g)g.focus()}});
+document.addEventListener("input",e=>{
+ if(e.target.id==="gs"){S.sq=e.target.value;clearTimeout(S.timer);S.timer=setTimeout(()=>{if(S.sq.trim()){S.view="search";const g=$("#gs");$("nav.tabs [aria-current]")?.removeAttribute("aria-current");view()}else nav("dash")},250)}
+ if(e.target.id==="pf"){clearTimeout(S.timer);const v=e.target.value;S.timer=setTimeout(async()=>{$("#pl").innerHTML=plist(await api("/patients?search="+encodeURIComponent(v)))},200)}
+ if(e.target.id==="sdf"||e.target.id==="sdt"){S.sf.from=$("#sdf").value;S.sf.to=$("#sdt").value;view()}});
+document.addEventListener("submit",async e=>{if(e.target.id!=="lf")return;e.preventDefault();
+ try{const r=await api("/auth/login",{method:"POST",body:{username:$("#u").value,password:$("#p").value}});S.token=r.token;S.user=r.user;localStorage.setItem("tok",r.token);localStorage.setItem("usr",JSON.stringify(r.user));S.view="dash";render()}
+ catch(er){const x=$("#le");x.textContent=er.message;x.style.display="inline-block"}});
+setLang(S.lang);
+</script>
+</body>
+</html>

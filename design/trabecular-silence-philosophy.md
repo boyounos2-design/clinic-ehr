@@ -1,0 +1,13 @@
+# Trabecular Silence
+
+*A visual philosophy of load, order and restraint.*
+
+Trabecular Silence holds that the deepest structure is the quietest. Nothing in this world is drawn for effect: every line exists because a force passed through it. Two families of curves, always meeting at right angles, are the whole vocabulary. Where the load is heavy the lines crowd together into a dense, luminous weave; where it is light they open into breathing air. Density is the only drama. The eye is never told where to look; it is led there by the physics of the composition, the way a river is led by its bed. The result must read as a mapped phenomenon rather than a decoration — a field recording of tension made visible.
+
+Space is treated as material, not as leftover. A dark, near-black ground carries a single warm bone-ivory ink in a ladder of translucencies, so that depth comes from accumulation, never from colour. One rare accent — a thin vein of vermilion — marks the single path where the load is greatest, and is used once, deliberately, like a surgeon's mark on a drawing. Margins are generous and exact; the field is cropped by a quiet organic contour so that the geometry feels grown rather than imposed. Every alignment is the product of countless refinements, the work of a master who has measured it a hundred times and still adjusts a hair.
+
+Rhythm is built through patient repetition. Hundreds of marks, each a hairline, repeat with a slow, graded change of interval, rewarding long looking: from a distance a single glowing form, up close a precise instrument-grade lattice. Scale shifts are minimal and confident — large silence, small precision. This is meticulously crafted work, labored over with a care that is felt rather than announced, in the spirit of an anatomical plate or a scientific atlas engraved by someone at the absolute top of their discipline.
+
+Typography is a whisper and a footnote. Thin, widely spaced labels in a monospaced hand — plate numbers, coordinates, a single date — sit at the edges like the annotations of an imaginary discipline, while one slender serif word may stand alone as the quiet title. Text never explains; it only anchors. Nothing overlaps, nothing approaches the edge, and every glyph is set with painstaking attention to spacing, as if the page were about to be hung in a museum.
+
+The final standard is cohesion over addition. When the work feels unfinished the answer is never another shape; it is a more exact line, a more considered gap, a calmer value. Pristine, restrained, unmistakably the product of deep expertise: a composition that proves that something ephemeral — strain, weight, time — can be studied, mapped and quietly understood.
