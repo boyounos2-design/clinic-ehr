@@ -16,15 +16,23 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
+import sys
+import tempfile
+from contextlib import contextmanager
+from urllib.parse import quote
+
 import bcrypt
 import jwt
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-import intake
-import ocr
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # lets "import intake" work however the app is launched
+import intake  # noqa: E402
+import ocr  # noqa: E402
+
+USE_PG = bool(os.environ.get("DATABASE_URL"))               # PostgreSQL mode (hosted / serverless); otherwise local SQLite
 
 log = logging.getLogger("ehr")
 ROOT = Path(__file__).resolve().parent.parent
@@ -47,6 +55,8 @@ def new_id() -> str:
 def jwt_secret() -> str:
     if os.environ.get("EHR_JWT_SECRET"):
         return os.environ["EHR_JWT_SECRET"]
+    if USE_PG:
+        raise RuntimeError("Hosted mode: set EHR_JWT_SECRET (a long random string) so every server instance signs tokens the same way.")
     f = DATA / "secret.key"                                  # generated once, per installation
     if not f.exists():
         DATA.mkdir(parents=True, exist_ok=True)
@@ -88,7 +98,49 @@ CREATE INDEX IF NOT EXISTS ix_si_p ON search_index(patient_id);
 CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL,
   entity_id TEXT, detail TEXT, ip TEXT, at TEXT NOT NULL);
 """
+SCHEMA_PG = SCHEMA.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY") + """
+CREATE TABLE IF NOT EXISTS blobs(key TEXT PRIMARY KEY, data BYTEA NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+"""
 _lock = threading.Lock()                       # one writer at a time keeps SQLite simple and safe
+_pg = None
+
+
+def _pg_conn():
+    global _pg
+    if _pg is None or _pg.closed:
+        import psycopg
+        from psycopg.rows import dict_row
+        _pg = psycopg.connect(os.environ["DATABASE_URL"], autocommit=True, row_factory=dict_row, prepare_threshold=None, connect_timeout=15)
+    return _pg
+
+
+def _pg_sql(sql: str) -> str:
+    """The few SQLite-isms used in this file, translated for PostgreSQL."""
+    return (sql.replace("%", "%%").replace("date('now','localtime')", "to_char(now() AT TIME ZONE 'Africa/Cairo','YYYY-MM-DD')")
+               .replace("date('now')", "to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD')").replace("? IS NULL", "CAST(? AS TEXT) IS NULL").replace("?='all'", "CAST(? AS TEXT)='all'")
+               .replace("? <> ''", "CAST(? AS TEXT) <> ''").replace("?", "%s"))
+
+
+def _q_pg(sql, params, one):
+    import psycopg
+    for attempt in (1, 2):
+        try:
+            with _lock:
+                sq = _pg_sql(sql)
+                if isinstance(params, dict):
+                    sq = re.sub(r":(\w+)", r"%(\1)s", sq)
+                cur = _pg_conn().execute(sq, params)
+                rows = cur.fetchall() if cur.description else None
+            break
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            global _pg
+            _pg = None                       # connection dropped (idle serverless instance): reconnect once
+            if attempt == 2:
+                raise
+    if rows is None:
+        return None
+    return (rows[0] if rows else None) if one else rows
 
 
 def conn():
@@ -100,6 +152,8 @@ def conn():
 
 
 def q(sql: str, params=(), one=False):
+    if USE_PG:
+        return _q_pg(sql, params, one)
     with _lock:
         c = conn()
         try:
@@ -111,6 +165,80 @@ def q(sql: str, params=(), one=False):
     if rows is None:
         return None
     return (rows[0] if rows else None) if one else rows
+
+
+# ───────────────────────── file storage (disk locally; database in hosted mode) ─────────────────────────
+def put_blob(key: str, data: bytes):
+    if USE_PG:
+        q("INSERT INTO blobs(key,data,created_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data", (key, data, now()))
+    else:
+        p = FILES / key
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+
+
+def get_blob(key: str):
+    if USE_PG:
+        r = q("SELECT data FROM blobs WHERE key=?", (key,), one=True)
+        return bytes(r["data"]) if r else None
+    p = FILES / key
+    return p.read_bytes() if p.exists() else None
+
+
+def del_blob(key: str):
+    if USE_PG:
+        q("DELETE FROM blobs WHERE key=?", (key,))
+    else:
+        try:
+            (FILES / key).unlink()
+        except OSError:
+            pass
+
+
+@contextmanager
+def blob_file(key: str):
+    """A real file path for libraries that need one (OCR)."""
+    if not USE_PG:
+        yield FILES / key
+        return
+    data = get_blob(key)
+    if data is None:
+        raise RuntimeError("File not found")
+    fd, name = tempfile.mkstemp(suffix=".bin")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        yield Path(name)
+    finally:
+        try:
+            os.unlink(name)
+        except OSError:
+            pass
+
+
+def kv_get(name: str):
+    if USE_PG:
+        r = q("SELECT value FROM settings WHERE key=?", (name,), one=True)
+        return r["value"] if r else None
+    f = DATA / f"{name}.txt"
+    return f.read_text().strip() or None if f.exists() else None
+
+
+def kv_set(name: str, value):
+    if USE_PG:
+        if value:
+            q("INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (name, value))
+        else:
+            q("DELETE FROM settings WHERE key=?", (name,))
+        return
+    f = DATA / f"{name}.txt"
+    if value:
+        f.write_text(value)
+    elif f.exists():
+        f.unlink()
+
+
+intake.kv_get = kv_get
 
 
 def audit(user, action, entity, entity_id=None, detail=None, request: Request | None = None):
@@ -183,19 +311,29 @@ DEMO_USERS = [("admin", "Admin#12345", "System Admin", "admin"), ("doctor", "Doc
 
 
 def init_db():
-    DATA.mkdir(parents=True, exist_ok=True)
-    FILES.mkdir(parents=True, exist_ok=True)
-    c = conn()
-    c.executescript(SCHEMA)
-    if "dob_approx" not in [r["name"] for r in c.execute("PRAGMA table_info(patients)").fetchall()]:   # upgrade older databases
-        c.execute("ALTER TABLE patients ADD COLUMN dob_approx INTEGER NOT NULL DEFAULT 0")
-    c.commit()
-    c.close()
+    if USE_PG:
+        if not q("SELECT to_regclass('public.users') AS t", one=True)["t"]:
+            with _lock:
+                c = _pg_conn()
+                c.execute("SELECT pg_advisory_lock(7731)")
+                try:
+                    c.execute(SCHEMA_PG)
+                finally:
+                    c.execute("SELECT pg_advisory_unlock(7731)")
+    else:
+        DATA.mkdir(parents=True, exist_ok=True)
+        FILES.mkdir(parents=True, exist_ok=True)
+        c = conn()
+        c.executescript(SCHEMA)
+        if "dob_approx" not in [r["name"] for r in c.execute("PRAGMA table_info(patients)").fetchall()]:   # upgrade older databases
+            c.execute("ALTER TABLE patients ADD COLUMN dob_approx INTEGER NOT NULL DEFAULT 0")
+        c.commit()
+        c.close()
     if not q("SELECT 1 FROM users LIMIT 1", one=True) and os.environ.get("EHR_ENV") == "production":
         pw = os.environ.get("EHR_ADMIN_PASSWORD", "")
         if len(pw) < 12:
             raise RuntimeError("Production mode: set EHR_ADMIN_PASSWORD (at least 12 characters) for the first start. No demo users are created.")
-        q("INSERT INTO users(id,username,password_hash,full_name,role,created_at) VALUES (?,?,?,?,?,?)",
+        q("INSERT INTO users(id,username,password_hash,full_name,role,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(username) DO NOTHING",
           (new_id(), os.environ.get("EHR_ADMIN_USER", "admin"), hash_pw(pw), "Administrator", "admin", now()))
         log.warning("Production first run: created the admin account only. Add the other users from the app.")
     elif not q("SELECT 1 FROM users LIMIT 1", one=True):
@@ -208,9 +346,10 @@ def init_db():
 async def lifespan(app: FastAPI):
     init_db()
     intake_cleanup()
-    q("UPDATE documents SET ocr_status='pending' WHERE ocr_status='processing'")      # crash recovery
-    pending = [r["id"] for r in q("SELECT id FROM documents WHERE ocr_status='pending' AND deleted_at IS NULL")]
-    threading.Thread(target=lambda: [run_ocr(i) for i in pending], daemon=True).start()
+    if not USE_PG:                                           # hosted mode reads files inline, no background queue
+        q("UPDATE documents SET ocr_status='pending' WHERE ocr_status='processing'")      # crash recovery
+        pending = [r["id"] for r in q("SELECT id FROM documents WHERE ocr_status='pending' AND deleted_at IS NULL")]
+        threading.Thread(target=lambda: [run_ocr(i) for i in pending], daemon=True).start()
     yield
 
 
@@ -560,12 +699,21 @@ def run_ocr(doc_id):
         return
     q("UPDATE documents SET ocr_status='processing', ocr_error=NULL WHERE id=?", (doc_id,))
     try:
-        text, status, langs = ocr.extract_text(FILES / d["storage_key"], d["mime_type"])
+        with blob_file(d["storage_key"]) as p:
+            text, status, langs = ocr.extract_text(p, d["mime_type"])
         q("UPDATE documents SET ocr_status=?, ocr_text=?, ocr_lang=? WHERE id=?", (status, text, langs, doc_id))
     except Exception as e:                       # noqa: BLE001 - record any failure on the row
         log.warning("OCR failed for %s: %s", doc_id, e)
         q("UPDATE documents SET ocr_status='failed', ocr_error=? WHERE id=?", (str(e)[:500], doc_id))
     index_document(doc_id)
+
+
+def schedule_ocr(bg, did):
+    """Local: after the response. Hosted (serverless): inline, because the function may stop once it has answered."""
+    if USE_PG:
+        run_ocr(did)
+    else:
+        bg.add_task(run_ocr, did)
 
 
 def safe_doc(row):
@@ -594,8 +742,7 @@ def store_document(pid, data: bytes, filename, category, visit_id, user):
     if q("SELECT 1 FROM documents WHERE patient_id=? AND sha256=? AND deleted_at IS NULL", (pid, sha), one=True):
         raise HTTPException(409, "This exact file is already attached to this patient")
     did, key = new_id(), f"{pid}/{uuid.uuid4().hex}"
-    (FILES / pid).mkdir(parents=True, exist_ok=True)
-    (FILES / key).write_bytes(data)
+    put_blob(key, data)
     name = os.path.basename((filename or "file").replace("\\", "/"))[:200]
     status = "not_applicable" if mime == "application/dicom" else "pending"
     q("""INSERT INTO documents(id,patient_id,visit_id,category,original_name,mime_type,size_bytes,storage_key,sha256,ocr_status,uploaded_by,uploaded_at)
@@ -613,7 +760,7 @@ async def upload_document(pid: str, bg: BackgroundTasks, request: Request, file:
     data = await file.read(MAX_UPLOAD + 1)
     did, needs_ocr = store_document(pid, data, file.filename, category, visit_id, u)
     if needs_ocr:
-        bg.add_task(run_ocr, did)
+        schedule_ocr(bg, did)
     audit(u, "create", "document", did, {"name": file.filename}, request)
     return safe_doc(q("SELECT * FROM documents WHERE id=?", (did,), one=True))
 
@@ -634,7 +781,10 @@ def get_document(did: str, u=CLINICAL):
 def download_document(did: str, request: Request, u=CLINICAL):
     d = get_doc_or_404(did)
     audit(u, "download", "document", did, None, request)
-    return FileResponse(FILES / d["storage_key"], media_type=d["mime_type"], filename=d["original_name"], content_disposition_type="inline")
+    data = get_blob(d["storage_key"])
+    if data is None:
+        raise HTTPException(404, "File not found")
+    return Response(data, media_type=d["mime_type"], headers={"Content-Disposition": "inline; filename*=UTF-8''" + quote(d["original_name"])})
 
 
 @app.post("/api/documents/{did}/reocr", status_code=202)
@@ -643,7 +793,7 @@ def reocr(did: str, bg: BackgroundTasks, u=CLINICAL):
     if d["mime_type"] == "application/dicom":
         raise HTTPException(422, "Nothing to read in a DICOM image")
     ocr.tesseract.cache_clear()                 # pick up a Tesseract installed after the app started
-    bg.add_task(run_ocr, did)
+    schedule_ocr(bg, did)
     return {"queued": True}
 
 
@@ -806,12 +956,14 @@ def change_password(body: PwIn, request: Request, u=ANY):
 
 
 # ───────────────────────── paper-sheet intake ─────────────────────────
-INTAKE = DATA / "intake"
+INTAKE = (Path(tempfile.gettempdir()) / "ehr_intake") if USE_PG else DATA / "intake"      # working copy; hosted mode also keeps a copy in the database
 INTAKE_MIME = {"application/pdf", "image/png", "image/jpeg", "image/tiff", "image/bmp", "image/webp"}
 
 
 def intake_cleanup():
     """Uploaded sheets that were never saved are deleted after 2 days (they contain patient data)."""
+    if USE_PG:
+        q("DELETE FROM blobs WHERE key LIKE 'intake/%' AND created_at < ?", ((datetime.now(timezone.utc) - timedelta(days=2)).isoformat(timespec="seconds"),))
     if INTAKE.exists():
         cutoff = datetime.now().timestamp() - 2 * 86400
         for f in INTAKE.iterdir():
@@ -820,6 +972,29 @@ def intake_cleanup():
                     f.unlink()
             except OSError:
                 pass
+
+
+def intake_load(iid: str):
+    """(meta, bytes) of a pending sheet, or None. Hosted mode reads the database copy (another instance may have received the upload)."""
+    import json
+    if not re.fullmatch(r"[0-9a-f\-]{36}", iid or ""):
+        return None
+    if USE_PG:
+        data, meta = get_blob(f"intake/{iid}"), get_blob(f"intake/{iid}.json")
+        return (json.loads(meta), data) if data is not None and meta is not None else None
+    if not (INTAKE / iid).exists():
+        return None
+    return json.loads((INTAKE / f"{iid}.json").read_text()), (INTAKE / iid).read_bytes()
+
+
+def intake_drop(iid: str):
+    for suffix in ("", ".json"):
+        try:
+            (INTAKE / f"{iid}{suffix}").unlink()
+        except OSError:
+            pass
+        if USE_PG:
+            del_blob(f"intake/{iid}{suffix}")
 
 
 def find_duplicates(name: str, phone: Optional[str]):
@@ -852,7 +1027,11 @@ def intake_extract(request: Request, file: UploadFile = File(...), mode: str = F
     path = INTAKE / iid
     path.write_bytes(data)
     import json
-    (INTAKE / f"{iid}.json").write_text(json.dumps({"mime": mime, "name": os.path.basename((file.filename or "sheet").replace("\\", "/"))[:200], "user": u["id"]}))
+    meta_json = json.dumps({"mime": mime, "name": os.path.basename((file.filename or "sheet").replace("\\", "/"))[:200], "user": u["id"]})
+    (INTAKE / f"{iid}.json").write_text(meta_json)
+    if USE_PG:
+        put_blob(f"intake/{iid}", data)
+        put_blob(f"intake/{iid}.json", meta_json.encode())
     warnings, result, engine, raw_text = [], None, None, ""
     if mode == "ai" or (mode == "auto" and intake.ai_key()):
         try:
@@ -892,12 +1071,13 @@ def intake_extract(request: Request, file: UploadFile = File(...), mode: str = F
 @app.get("/api/intake/{iid}/file")
 def intake_file(iid: str, u=STAFF):
     import json
-    if not re.fullmatch(r"[0-9a-f\-]{36}", iid) or not (INTAKE / iid).exists():
+    got = intake_load(iid)
+    if not got:
         raise HTTPException(404, "Not found")
-    meta = json.loads((INTAKE / f"{iid}.json").read_text())
+    meta, data = got
     if meta["user"] != u["id"] and u["role"] != "admin":
         raise HTTPException(403, "Not your upload")
-    return FileResponse(INTAKE / iid, media_type=meta["mime"], content_disposition_type="inline")
+    return Response(data, media_type=meta["mime"], headers={"Content-Disposition": "inline"})
 
 
 class IntakeCommit(BaseModel):
@@ -949,21 +1129,21 @@ def intake_commit(body: IntakeCommit, request: Request, u=STAFF):
     elif body.follow_up_date:
         add_followup(pid, None, body.follow_up_date, body.follow_up_reason)
     attached = False
-    if body.intake_id and re.fullmatch(r"[0-9a-f\-]{36}", body.intake_id) and (INTAKE / body.intake_id).exists():
-        meta = json.loads((INTAKE / f"{body.intake_id}.json").read_text())
+    pending_sheet = intake_load(body.intake_id) if body.intake_id else None
+    if pending_sheet:
+        meta, sheet_bytes = pending_sheet
         if clinical and meta["user"] == u["id"]:
             try:
-                did, needs_ocr = store_document(pid, (INTAKE / body.intake_id).read_bytes(), meta["name"], "other", None, u)
+                did, needs_ocr = store_document(pid, sheet_bytes, meta["name"], "other", None, u)
                 attached = True
                 if needs_ocr:
-                    threading.Thread(target=run_ocr, args=(did,), daemon=True).start()
+                    if USE_PG:
+                        run_ocr(did)
+                    else:
+                        threading.Thread(target=run_ocr, args=(did,), daemon=True).start()
             except HTTPException:
                 pass
-        for suffix in ("", ".json"):                          # the temporary copy is always removed once saved
-            try:
-                (INTAKE / f"{body.intake_id}{suffix}").unlink()
-            except OSError:
-                pass
+        intake_drop(body.intake_id)                           # the temporary copy is always removed once saved
     audit(u, "intake_commit", "patient", pid, {"skipped": skipped, "attached": attached}, request)
     return {"patient": get_patient_or_404(pid), "skipped": skipped, "sheet_attached": attached}
 
@@ -982,30 +1162,25 @@ class KeyIn(BaseModel):
 @app.post("/api/settings/ai-key", status_code=204)
 def set_ai_key(body: KeyIn, request: Request, u=ADMIN):
     """Admin stores (or clears, with an empty value) the Anthropic API key used for AI sheet reading. The key is never returned."""
-    f = DATA / "anthropic_api_key.txt"
     k = body.key.strip()
     if k and (len(k) < 20 or not k.startswith("sk-")):
         raise HTTPException(422, "That does not look like an Anthropic API key (it starts with sk-)")
-    if k:
-        f.write_text(k)
-    elif f.exists():
-        f.unlink()
+    kv_set("anthropic_api_key", k)
     audit(u, "update", "settings", None, {"ai_key": "set" if k else "cleared"}, request)
 
 
 @app.post("/api/settings/ocrspace-key", status_code=204)
 def set_ocrspace_key(body: KeyIn, request: Request, u=ADMIN):
     """Admin stores (or clears) the OCR.Space API key. The key is never returned."""
-    f = DATA / "ocrspace_api_key.txt"
     k = body.key.strip()
     if k and (len(k) < 8 or not re.fullmatch(r"[A-Za-z0-9._\-]+", k)):
         raise HTTPException(422, "That does not look like an OCR.Space API key")
-    if k:
-        f.write_text(k)
-    elif f.exists():
-        f.unlink()
+    kv_set("ocrspace_api_key", k)
     audit(u, "update", "settings", None, {"ocrspace_key": "set" if k else "cleared"}, request)
 
+
+if USE_PG:
+    init_db()                                    # idempotent; also makes cold starts on serverless hosts self-sufficient
 
 FRONT = ROOT / "frontend"
 if FRONT.exists():

@@ -63,7 +63,17 @@ function stepUpload(){
  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{IN.mode=b.dataset.mode;stepUpload()});
  const su=$("#insetup");if(su)su.onclick=openSettings}
 
+/* Vercel limits request bodies to 4.5MB: shrink big photos in the browser before sending. */
+async function shrinkImg(f,max=3.5e6){
+ if(!f||!f.type||!f.type.startsWith("image/")||f.size<=max)return f;
+ try{const bm=await createImageBitmap(f);let sc=Math.min(1,2600/Math.max(bm.width,bm.height)),q=.85,b;
+  for(let i=0;i<6;i++){const c=document.createElement("canvas");c.width=Math.round(bm.width*sc);c.height=Math.round(bm.height*sc);
+   c.getContext("2d").drawImage(bm,0,0,c.width,c.height);b=await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+   if(b&&b.size<=max)break;sc*=.8;q=Math.max(.6,q-.05)}
+  return b?new File([b],f.name.replace(/\.\w+$/,"")+".jpg",{type:"image/jpeg"}):f}catch(e){return f}}
+
 async function extract(file){
+ file=await shrinkImg(file);
  IN.file=file;if(IN.url)URL.revokeObjectURL(IN.url);IN.url=URL.createObjectURL(file);
  inShell(`<div class="loading"><div class="spin"></div><b>${esc(it("reading"))}</b><div class="mute">${esc(it("readingSub"))}</div></div>`);
  const fd=new FormData();fd.append("file",file);fd.append("mode",IN.mode);

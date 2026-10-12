@@ -40,3 +40,21 @@ Render dashboard > **New > Blueprint** > pick this repo > it reads `render.yaml`
 
 ## Tests
 `python test_intake.py`, and with the server running: `python smoke_test.py`, `python intake_e2e_test.py`.
+
+## Deploy on Vercel (serverless) + Postgres
+
+Vercel has no persistent disk, so in this mode everything (data, uploaded files, settings) lives in Postgres.
+
+1. Create a Postgres database (e.g. Neon, or a Vercel Marketplace Postgres) and copy its connection string.
+2. Import this GitHub repo in Vercel (framework: FastAPI/Python is auto-detected).
+3. Set environment variables:
+   - `DATABASE_URL` – the Postgres connection string
+   - `EHR_ENV=production`
+   - `EHR_JWT_SECRET` – a long random string
+   - `EHR_ADMIN_PASSWORD` – at least 12 characters (first admin user is created on first start)
+   - optional: `OCRSPACE_API_KEY`, `ANTHROPIC_API_KEY` (or set them in the app's Settings screen)
+4. Deploy. Open `/api/health` to check, then log in as `admin`.
+
+Limits: request bodies are capped at 4.5MB (the browser shrinks large photos automatically); OCR runs
+inside the request, so use OCR.Space/Anthropic (Tesseract is not available on Vercel).
+Only fake/demo data should be used on a free trial deployment.

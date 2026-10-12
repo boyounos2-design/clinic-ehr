@@ -234,7 +234,7 @@ async function tDocs(pt){const d=await api(`/patients/${S.pid}/documents`);
  drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};drop.ondragleave=()=>drop.classList.remove("over");
  drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");upl(e.dataTransfer.files)};fi.onchange=()=>upl(fi.files);
  clearTimeout(pollT);if(d.some(x=>["pending","processing"].includes(x.ocr_status)))pollT=setTimeout(()=>{if(S.view==="patient"&&S.ptab==="documents")tDocs($("#pt"))},2500)}
-async function upl(files){for(const f of files){const fd=new FormData();fd.append("file",f);fd.append("category",$("#dc").value);
+async function upl(files){for(let f of files){f=await shrinkImg(f);if(f.size>4.2e6){toast(f.name+": >4MB");continue}const fd=new FormData();fd.append("file",f);fd.append("category",$("#dc").value);
  try{await api(`/patients/${S.pid}/documents`,{method:"POST",form:fd});toast(f.name+" ✓")}catch(e){toast(f.name+": "+e.message)}}tDocs($("#pt"))}
 async function tFu(pt){const f=await api("/followups?status=all&patient_id="+S.pid);
  pt.innerHTML=`<button class="btn primary" data-a="addFu" style="margin-bottom:12px">+ ${t("addFu")}</button><div class="card">${f.length?f.map(fuRow).join(""):`<p class="mute">${t("none")}</p>`}</div>`}

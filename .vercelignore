@@ -1,0 +1,12 @@
+data/
+design/
+*.bat
+*.txt
+!requirements.txt
+smoke_test.py
+intake_e2e_test.py
+test_intake.py
+Dockerfile
+docker-compose.yml
+deploy/
+render.yaml

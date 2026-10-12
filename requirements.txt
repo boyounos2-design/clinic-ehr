@@ -9,3 +9,4 @@ pypdf>=4.2
 pypdfium2>=4.30
 pytesseract>=0.3.10
 httpx>=0.27
+psycopg[binary]>=3.2; python_version < "3.14"

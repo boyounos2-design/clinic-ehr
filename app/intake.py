@@ -213,12 +213,19 @@ uncertain (array of key names whose value you could not read confidently).
 Rules: copy text exactly as written and keep its language; never invent or guess a value; do not translate; if a word is illegible write what you can read and list the key in "uncertain"."""
 
 
+def _file_kv(name: str):
+    f = Path(os.environ.get("EHR_DATA_DIR", Path(__file__).resolve().parent.parent / "data")) / f"{name}.txt"
+    return (f.read_text().strip() or None) if f.exists() else None
+
+
+kv_get = _file_kv        # the app replaces this with a database-backed version in hosted mode
+
+
 def ai_key() -> str | None:
     k = os.environ.get("ANTHROPIC_API_KEY")
-    if k:
+    if k and k.strip():
         return k.strip()
-    f = Path(os.environ.get("EHR_DATA_DIR", Path(__file__).resolve().parent.parent / "data")) / "anthropic_api_key.txt"
-    return f.read_text().strip() if f.exists() and f.read_text().strip() else None
+    return kv_get("anthropic_api_key")
 
 
 def _prepare_image(path: Path, mime: str):
@@ -275,9 +282,7 @@ def ocrspace_key() -> str | None:
     k = os.environ.get("OCRSPACE_API_KEY")
     if k and k.strip():
         return k.strip()
-    f = _data_file("ocrspace_api_key.txt")
-    t = f.read_text().strip() if f.exists() else ""
-    return t or None
+    return kv_get("ocrspace_api_key")
 
 
 def _shrink_for_ocrspace(path: Path, mime: str):
