@@ -18,6 +18,11 @@ Patient-records app for an orthopedic clinic (Arabic / English, RTL). FastAPI + 
 
 Automatic reading can be wrong. The UI marks low-confidence fields and nothing is saved until the doctor presses Save.
 
+## Trial link from your own PC (no card, no hosting account)
+Windows: run `share_online.bat`. It starts a separate empty copy in production mode and opens a temporary `trycloudflare.com` link
+(Cloudflare Quick Tunnel: no account needed, testing use only, no uptime guarantee, link changes each run). The PC and the window must stay on.
+Optionally restrict the link to the doctor's e-mail (Cloudflare one-time PIN). Use sample data only.
+
 ## Trial link on Render (free, data is erased on restart)
 Render dashboard > **New > Blueprint** > pick this repo > it reads `render.yaml`. Then open Render > the service > **Environment**, read `EHR_ADMIN_PASSWORD`, and sign in as `admin` at the service URL. The free plan sleeps after 15 min idle (about 1 min to wake) and has no persistent disk, so use sample data only.
 
